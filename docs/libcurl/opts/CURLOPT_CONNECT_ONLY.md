@@ -43,6 +43,11 @@ libcurl performs the request and reads all response headers before handing
 over control to the application. For other protocols the behavior of '2'
 is undefined.
 
+With '1', libcurl does not start HTTP/2 on the connection even when TLS ALPN
+negotiates "h2": the application reads and writes the connection's bytes with
+curl_easy_recv(3) and curl_easy_send(3) and speaks the negotiated protocol
+itself.
+
 Transfers marked connect only do not reuse any existing connections and
 connections marked connect only are not allowed to get reused.
 

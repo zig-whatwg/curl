@@ -225,9 +225,13 @@ static CURLcode baller_connected(struct Curl_cfilter *cf,
 #ifdef USE_NGHTTP2
   {
     /* Using nghttp2, we add the filter "below" us, so when the conn
-     * closes, we tear it down for a fresh reconnect */
+     * closes, we tear it down for a fresh reconnect. A CONNECT_ONLY (1)
+     * transfer gets no HTTP/2 filter: the application owns the bytes of the
+     * connection (curl_easy_send/curl_easy_recv) and speaks the protocol
+     * that ALPN negotiated itself. */
     const char *alpn = Curl_conn_cf_get_alpn_negotiated(cf->next, data);
-    if(alpn && !strcmp("h2", alpn)) {
+    if(alpn && !strcmp("h2", alpn) &&
+       !(data->set.connect_only && !data->set.connect_only_ws)) {
       result = Curl_http2_switch_at(cf, data);
       if(result) {
         ctx->state = CF_HC_FAILURE;

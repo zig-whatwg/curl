@@ -1282,6 +1282,13 @@ static CURLcode setopt_long(struct Curl_easy *data, CURLoption option,
   case CURLOPT_UPLOAD_FLAGS:
     s->upload_flags = (unsigned char)arg;
     break;
+#ifndef CURL_DISABLE_HTTP
+  case CURLOPT_HTTP_LENIENT:
+    if(arg & ~(CURLHTTPLENIENT_NOCOLON | CURLHTTPLENIENT_BADCLEN))
+      return CURLE_BAD_FUNCTION_ARGUMENT;
+    s->http_lenient = (unsigned char)arg;
+    break;
+#endif
   default:
     return CURLE_UNKNOWN_OPTION;
   }

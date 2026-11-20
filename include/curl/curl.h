@@ -2253,6 +2253,9 @@ typedef enum {
   /* set TLS supported signature algorithms */
   CURLOPT(CURLOPT_SSL_SIGNATURE_ALGORITHMS, CURLOPTTYPE_STRINGPOINT, 328),
 
+  /* parse HTTP/1 response headers leniently: a bitmask of CURLHTTPLENIENT_* */
+  CURLOPT(CURLOPT_HTTP_LENIENT, CURLOPTTYPE_LONG, 329),
+
   CURLOPT_LASTENTRY /* the last unused */
 } CURLoption;
 
@@ -2324,6 +2327,15 @@ typedef enum {
    not 2.0. The 2_0 version of the enum name was set while the version was
    still planned to be 2.0 and we stick to it for compatibility. */
 #define CURL_HTTP_VERSION_2 CURL_HTTP_VERSION_2_0
+
+/* bits for the CURLOPT_HTTP_LENIENT option: what an HTTP/1 response may
+   carry that would otherwise fail the transfer with CURLE_WEIRD_SERVER_REPLY,
+   handled the way web browsers handle it */
+/* a header line without a colon is ignored */
+#define CURLHTTPLENIENT_NOCOLON (1L << 0)
+/* a single Content-Length value that is not a number is ignored, as if the
+   header was absent */
+#define CURLHTTPLENIENT_BADCLEN (1L << 1)
 
 /*
  * Public API enums for RTSP requests

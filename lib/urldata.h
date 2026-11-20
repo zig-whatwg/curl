@@ -1484,6 +1484,7 @@ struct UserDefined {
   unsigned char ipver; /* the CURL_IPRESOLVE_* defines in the public header
                           file 0 - whatever, 1 - v2, 2 - v6 */
   unsigned char upload_flags; /* flags set by CURLOPT_UPLOAD_FLAGS */
+  unsigned char http_lenient; /* CURLHTTPLENIENT_* bits, CURLOPT_HTTP_LENIENT */
 #ifdef HAVE_GSSAPI
   /* GSS-API credential delegation, see the documentation of
      CURLOPT_GSSAPI_DELEGATION */

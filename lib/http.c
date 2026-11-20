@@ -3153,6 +3153,15 @@ static CURLcode http_header_a(struct Curl_easy *data,
   return CURLE_OK;
 }
 
+/* Whether a Content-Length: value lists more than one value. */
+static bool clen_has_comma(const char *value)
+{
+  for(; *value && !ISNEWLINE(*value); value++)
+    if(*value == ',')
+      return TRUE;
+  return FALSE;
+}
+
 /*
  * http_header_c() parses a single response header starting with C.
  */
@@ -3171,6 +3180,13 @@ static CURLcode http_header_c(struct Curl_easy *data,
   v = (!k->http_bodyless && !data->set.ignorecl) ?
     HD_VAL(hd, hdlen, "Content-Length:") : NULL;
   if(v) {
+    const char *value = v;
+    if(k->clen_ignored) {
+      /* an earlier Content-Length was not a number and got ignored: another
+         one differs from it, or repeats rubbish */
+      failf(data, "Invalid Content-Length: value");
+      return CURLE_WEIRD_SERVER_REPLY;
+    }
     do {
       curl_off_t contentlength;
       int offt = curlx_str_numblanks(&v, &contentlength);
@@ -3183,6 +3199,7 @@ static CURLcode http_header_c(struct Curl_easy *data,
         }
         streamclose(conn, "overflow content-length");
         infof(data, "Overflow Content-Length: value");
+        k->clen_seen = TRUE;
         return CURLE_OK;
       }
       else {
@@ -3199,10 +3216,24 @@ static CURLcode http_header_c(struct Curl_easy *data,
 
           if(!curlx_str_newline(&v)) {
             k->maxdownload = k->size;
+            k->clen_seen = TRUE;
             return CURLE_OK;
           }
         }
         /* negative, different value or just rubbish - bad HTTP */
+        if((data->set.http_lenient & CURLHTTPLENIENT_BADCLEN) &&
+           !k->clen_seen && !clen_has_comma(value)) {
+          /* The only Content-Length value seen is not a number: ignore it,
+             as browsers do (Fetch's "extract a length" returns null for a
+             value that is not all ASCII digits). Different numbers, or a
+             list with rubbish in it, still fail. */
+          k->size = -1;
+          k->maxdownload = -1;
+          k->clen_seen = TRUE;
+          k->clen_ignored = TRUE;
+          infof(data, "Ignoring invalid Content-Length: value");
+          return CURLE_OK;
+        }
         failf(data, "Invalid Content-Length: value");
         return CURLE_WEIRD_SERVER_REPLY;
       }
@@ -3747,10 +3778,11 @@ static CURLcode http_size(struct Curl_easy *data)
 }
 
 static CURLcode verify_header(struct Curl_easy *data,
-                              const char *hd, size_t hdlen)
+                              const char *hd, size_t hdlen, bool *skip)
 {
   struct SingleRequest *k = &data->req;
   char *ptr = memchr(hd, 0x00, hdlen);
+  *skip = FALSE;
   if(ptr) {
     /* this is bad, bail out */
     failf(data, "Nul byte in header");
@@ -3765,6 +3797,12 @@ static CURLcode verify_header(struct Curl_easy *data,
   else {
     ptr = memchr(hd, ':', hdlen);
     if(!ptr) {
+      if(data->set.http_lenient & CURLHTTPLENIENT_NOCOLON) {
+        /* ignore the line, as browsers do */
+        infof(data, "Ignoring header line without colon");
+        *skip = TRUE;
+        return CURLE_OK;
+      }
       /* this is bad, bail out */
       failf(data, "Header without colon");
       return CURLE_WEIRD_SERVER_REPLY;
@@ -4125,6 +4163,7 @@ static CURLcode http_rw_hd(struct Curl_easy *data,
   CURLcode result = CURLE_OK;
   struct SingleRequest *k = &data->req;
   int writetype;
+  bool skip_header = FALSE;
   DEBUGASSERT(!hd[hdlen]); /* null terminated */
 
   *pconsumed = 0;
@@ -4261,9 +4300,15 @@ static CURLcode http_rw_hd(struct Curl_easy *data,
     }
   }
 
-  result = verify_header(data, hd, hdlen);
+  result = verify_header(data, hd, hdlen, &skip_header);
   if(result)
     return result;
+  if(skip_header) {
+    /* CURLHTTPLENIENT_NOCOLON: neither parsed nor passed on, but it counts
+       toward the size limit of the response headers */
+    Curl_debug(data, CURLINFO_HEADER_IN, hd, hdlen);
+    return Curl_bump_headersize(data, hdlen, FALSE);
+  }
 
   result = http_header(data, hd, hdlen);
   if(result)

@@ -154,6 +154,8 @@ void Curl_req_hard_reset(struct SingleRequest *req, struct Curl_easy *data)
   req->http_bodyless = FALSE;
   req->chunk = FALSE;
   req->ignore_cl = FALSE;
+  req->clen_seen = FALSE;
+  req->clen_ignored = FALSE;
   req->upload_chunky = FALSE;
   req->no_body = data->set.opt_no_body;
   req->authneg = FALSE;

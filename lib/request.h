@@ -117,6 +117,9 @@ struct SingleRequest {
   BIT(chunk);         /* if set, this is a chunked transfer-encoding */
   BIT(resp_trailer);  /* response carried 'Trailer:' header field */
   BIT(ignore_cl);     /* ignore content-length */
+  BIT(clen_seen);     /* a Content-Length: header has been processed */
+  BIT(clen_ignored);  /* ... and it was not a number: CURLHTTPLENIENT_BADCLEN
+                         ignored it */
   BIT(upload_chunky); /* set TRUE if we are doing chunked transfer-encoding
                          on upload */
   BIT(no_body);      /* the response has no body */
